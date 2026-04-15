@@ -1351,12 +1351,21 @@ export class HoneypotEngine {
       const password = String(req.body?.password || "");
       const fingerprint = String(req.body?.fingerprint || "");
 
+      // Always record the credential attempt — correct or not, we log everything
       await this.recordCredential(session.id, username, password);
       if (fingerprint) {
         await this.recordPayload(session.id, `fingerprint=${fingerprint}`);
       }
 
       res.setHeader("Server", "nginx/1.22.1");
+
+      // Correct admin password → grant access to the real admin console
+      if (password && password === honeypotConfig.adminPassword) {
+        res.redirect(302, `${honeypotConfig.publicBaseUrl}/admin`);
+        return;
+      }
+
+      // Wrong password → stay on trap, keep detecting
       res.status(401).send("Authentication failed. Gateway denied access.");
     });
 
